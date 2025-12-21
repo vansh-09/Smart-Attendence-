@@ -1,0 +1,9 @@
+# Core
+numpy>=1.24
+opencv-python>=4.8
+Pillow>=10.0
+
+# TensorFlow (use tensorflow-macos on Apple Silicon; see README)
+tensorflow>=2.11
+keras-facenet>=0.3.2
+mtcnn>=0.1.1

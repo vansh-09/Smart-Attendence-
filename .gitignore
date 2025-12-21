@@ -1,0 +1,13 @@
+
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.DS_Store
+
+# Ignore data files
+reference/embedding.json
+reference/img1.jpg
+reference/img2.jpg
