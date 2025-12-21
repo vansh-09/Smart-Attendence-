@@ -1,71 +1,93 @@
+"""
+Reference Embedding Management
+Handles loading/saving student embeddings
+"""
+
 import json
 import os
 import glob
-
-import cv2
+import csv
 import numpy as np
-
-from .detector import FaceDetector
-from .embedder import FaceEmbedder
+from .model import FaceModel
 
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-# Use root-level 'reference/' folder to match current project structure
-EMBEDDING_PATH = os.path.join(BASE_DIR, "reference", "embedding.json")
-REFERENCE_DIR = os.path.join(BASE_DIR, "reference")
+EMBEDDINGS_FILE = os.path.join(BASE_DIR, "reference", "embeddings.json")
+STUDENTS_CSV = os.path.join(BASE_DIR, "data", "students", "students.csv")
+STUDENTS_DIR = os.path.join(BASE_DIR, "data", "students")
 
 
-def build_reference_embedding(name: str, roll_no: str, reference_dir: str = None) -> str:
-    """Compute mean embedding from two reference images and save as JSON.
-    Returns the path to the saved JSON.
-    """
-    reference_dir = reference_dir or REFERENCE_DIR
-    files = sorted(glob.glob(os.path.join(reference_dir, "*.jpg"))) + \
-            sorted(glob.glob(os.path.join(reference_dir, "*.png")))
-    if len(files) < 2:
-        raise ValueError("Expected at least 2 reference images in data/reference/")
-
-    detector = FaceDetector()
-    embedder = FaceEmbedder()
-
-    embeddings = []
-    for fp in files[:2]:
-        img = cv2.imread(fp)
-        if img is None:
-            continue
-        dets = detector.detect(img)
-        if not dets:
-            continue
-        # Use the highest-confidence face
-        det = max(dets, key=lambda d: d['confidence'])
-        box = FaceDetector.clamp_box(det['box'], img.shape[1], img.shape[0], margin=10)
-        face = embedder.crop_and_resize(img, box)
-        emb = embedder.embed(face)
-        if emb is not None:
-            embeddings.append(emb)
-
-    if len(embeddings) < 2:
-        raise RuntimeError("Could not generate embeddings from both images. Check image quality.")
-
-    mean_emb = np.mean(np.stack(embeddings, axis=0), axis=0)
-    # Normalize embedding
-    mean_emb = (mean_emb / (np.linalg.norm(mean_emb) + 1e-8)).tolist()
-
-    payload = {
-        "name": name,
-        "roll_no": roll_no,
-        "embedding": mean_emb,
-    }
-
-    os.makedirs(os.path.dirname(EMBEDDING_PATH), exist_ok=True)
-    with open(EMBEDDING_PATH, "w") as f:
-        json.dump(payload, f)
-    return EMBEDDING_PATH
-
-
-def load_reference_embedding(path: str = None):
-    path = path or EMBEDDING_PATH
-    if not os.path.exists(path):
-        return None
-    with open(path, "r") as f:
+def load_embeddings():
+    """Load all student embeddings from JSON."""
+    if not os.path.exists(EMBEDDINGS_FILE):
+        return {}
+    with open(EMBEDDINGS_FILE, "r") as f:
         return json.load(f)
+
+
+def save_embeddings(embeddings):
+    """Save embeddings to JSON."""
+    os.makedirs(os.path.dirname(EMBEDDINGS_FILE), exist_ok=True)
+    with open(EMBEDDINGS_FILE, "w") as f:
+        json.dump(embeddings, f)
+
+
+def train_embeddings():
+    """Generate embeddings for all students from photos."""
+    if not os.path.exists(STUDENTS_CSV):
+        print("No students.csv found")
+        return
+    
+    # Read student info
+    students = {}
+    with open(STUDENTS_CSV, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            roll = row['roll_number'].strip()
+            name = row['name'].strip()
+            students[roll] = name
+    
+    # Generate embeddings
+    model = FaceModel()
+    embeddings = {}
+    
+    for roll_no, name in students.items():
+        student_dir = os.path.join(STUDENTS_DIR, roll_no)
+        if not os.path.isdir(student_dir):
+            continue
+        
+        photos = sorted(
+            glob.glob(os.path.join(student_dir, "*.jpg")) +
+            glob.glob(os.path.join(student_dir, "*.jpeg")) +
+            glob.glob(os.path.join(student_dir, "*.png"))
+        )
+        
+        if len(photos) < 2:
+            print(f"Skipping {roll_no} - need at least 2 photos")
+            continue
+        
+        # Generate embeddings from all photos
+        embs = []
+        for photo_path in photos:
+            import cv2
+            img = cv2.imread(photo_path)
+            emb, _ = model.detect_and_embed(img)
+            if emb is not None:
+                embs.append(emb)
+        
+        if not embs:
+            print(f"Skipping {roll_no} - no valid faces detected")
+            continue
+        
+        # Compute mean embedding
+        mean_emb = np.mean(np.stack(embs, axis=0), axis=0)
+        mean_emb = (mean_emb / (np.linalg.norm(mean_emb) + 1e-8)).tolist()
+        
+        embeddings[roll_no] = {
+            "name": name,
+            "embedding": mean_emb
+        }
+        print(f"✓ {roll_no}: {name}")
+    
+    save_embeddings(embeddings)
+    print(f"\nTrained {len(embeddings)} students")

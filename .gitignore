@@ -11,3 +11,8 @@ __pycache__/
 reference/embedding.json
 reference/img1.jpg
 reference/img2.jpg
+
+# Ignore database files
+data
+
+
