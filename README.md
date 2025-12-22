@@ -1,269 +1,301 @@
-# 📸 Smart Attendance System
+# Smart Attendance System v4
 
-An intelligent, real-time facial recognition attendance tracking system built with deep learning. This offline-capable application uses state-of-the-art FaceNet embeddings and MTCNN face detection to automatically mark attendance via webcam.
+Real-time facial recognition attendance tracking using FaceNet and MTCNN.
 
-## ✨ Features
+## Overview
 
-- **🎯 Real-time Face Detection**: Utilizes MTCNN (Multi-task Cascaded Convolutional Networks) for accurate face detection
-- **🧠 Deep Learning Recognition**: Employs pretrained FaceNet model for generating 512-dimensional face embeddings
-- **📊 High Accuracy**: Cosine similarity-based matching with configurable threshold for precise identification
-- **💾 Offline Operation**: Runs completely offline after initial model download
-- **📝 Automated Logging**: Automatically records attendance to CSV with timestamps
-- **🖥️ Live Preview**: Real-time OpenCV overlay showing recognized names and roll numbers
-- **⚡ Session-based**: Smart detection ensures attendance is marked only once per session
+A batch attendance system that:
 
-## 🛠️ Technology Stack
+- **Trains** embeddings for multiple students from photos
+- **Recognizes** students in real-time via webcam
+- **Logs** attendance automatically to CSV
+- **All logic in one file** - `src/pipeline.py`
 
-- **Python 3.9+**
-- **TensorFlow/Keras**: Deep learning framework
-- **keras-facenet**: FaceNet model implementation
-- **MTCNN**: Face detection
-- **OpenCV**: Real-time video processing
-- **NumPy**: Numerical computations
+## Quick Start
 
-## 📋 Prerequisites
+### 1. Install Dependencies
 
-- Python 3.9 or higher
-- Webcam
-- macOS, Linux, or Windows
-
-### For Apple Silicon (M1/M2) Users
-
-This project is optimized for Apple Silicon and uses:
-- `tensorflow-macos`
-- `tensorflow-metal` (for GPU acceleration)
-
-## 🚀 Installation
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/vansh-09/Smart-Attendence-.git
-cd Smart-Attendence-
-```
-
-### 2. Create Virtual Environment
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
-
-### 3. Install Dependencies
-
-**Standard Installation:**
 ```bash
 pip install -r requirements.txt
 ```
 
-**Apple Silicon (M1/M2) Installation:**
-```bash
-pip uninstall -y tensorflow
-pip install tensorflow-macos tensorflow-metal
-pip install keras-facenet mtcnn opencv-python Pillow numpy
+### 2. Setup Students
+
+**Create CSV file** - `data/students/students.csv`:
+
+```csv
+roll_number,name
+101,John Doe
+102,Jane Smith
+103,Alice Johnson
 ```
 
-## 📁 Project Structure
-
-```
-smart-attendance/
-├── data/
-│   └── reference/          # Store reference face images here
-│       ├── img1.jpg
-│       ├── img2.jpg
-│       └── embedding.json  # Generated embeddings
-├── logs/
-│   └── attendance.csv      # Attendance records
-├── models/
-│   └── 20180402-114759/    # Cached FaceNet model weights
-├── src/
-│   ├── detector.py         # Face detection logic
-│   ├── embedder.py         # Embedding generation
-│   ├── reference.py        # Reference image handling
-│   ├── recognizer.py       # Face recognition
-│   ├── ui.py               # OpenCV UI overlay
-│   └── attendance.py       # Attendance logging
-├── main.py                 # Application entry point
-├── requirements.txt        # Python dependencies
-├── PRD.md                  # Product requirements document
-└── README.md              # This file
-```
-
-## 🎓 Usage
-
-### Step 1: Enroll Reference Images
-
-1. Place **two clear, frontal face images** in the `data/reference/` directory
-   - Images should be well-lit
-   - Face should be clearly visible
-   - Supported formats: JPG, JPEG, PNG
-
-2. Generate the reference embedding:
+**Create photo folders**:
 
 ```bash
-python main.py --enroll --name "Your Name" --roll "YOUR_ROLL_NUMBER"
+mkdir -p data/students/101 data/students/102 data/students/103
 ```
 
-**Example:**
+**Add 2+ photos per student**:
+
 ```bash
-python main.py --enroll --name "Vansh Jain" --roll "AI23DS042"
+cp john_photo1.jpg data/students/101/
+cp john_photo2.jpg data/students/101/
+cp jane_photo1.jpg data/students/102/
+cp jane_photo2.jpg data/students/102/
+# ... repeat for all students
 ```
 
-This creates `data/reference/embedding.json` containing the averaged face embedding.
+### 3. Train Embeddings
 
-### Step 2: Run Attendance System
+```bash
+python main.py --train
+```
 
-Start the real-time attendance tracking:
+**Output:**
+
+```
+Training 3 students...
+✓ 101: John Doe (2 faces)
+✓ 102: Jane Smith (2 faces)
+✓ 103: Alice Johnson (2 faces)
+✓ Trained 3 students
+```
+
+This generates `reference/embeddings.json` with face embeddings for all students.
+
+### 4. Run Attendance Recognition
+
+```bash
+python main.py --recognize
+```
+
+or simply:
 
 ```bash
 python main.py
 ```
 
-**With custom threshold:**
+**What it does:**
+
+- Opens webcam
+- Detects faces in real-time
+- Compares with all enrolled students
+- Shows best match and confidence score
+- Marks attendance automatically (once per session)
+- Logs to `logs/attendance.csv`
+
+**Stop**: Press `q` to quit
+
+## Commands
+
+| Command                          | Description                       |
+| -------------------------------- | --------------------------------- |
+| `python main.py --train`         | Train embeddings for all students |
+| `python main.py --recognize`     | Run attendance recognition        |
+| `python main.py`                 | Default (same as recognize)       |
+| `python main.py --threshold 0.5` | Adjust similarity threshold       |
+
+### Threshold Explanation
+
+- Default: `0.6` (cosine similarity)
+- Lower (0.4-0.5): More lenient, easier to match
+- Higher (0.7-0.8): Stricter, harder to match
+
 ```bash
-python main.py --threshold 0.6
+# Lenient matching
+python main.py --threshold 0.5
+
+# Strict matching
+python main.py --threshold 0.7
 ```
 
-- **Lower threshold (0.5)**: More lenient matching (may increase false positives)
-- **Higher threshold (0.7)**: Stricter matching (may increase false negatives)
-- **Default: 0.6** (balanced performance)
+## Project Structure
 
-### Step 3: Mark Attendance
-
-- Stand in front of the webcam
-- The system will detect and recognize your face
-- Once recognized, attendance is automatically logged to `logs/attendance.csv`
-- Press **'q'** to quit
-
-## 📊 Attendance Log Format
-
-The `logs/attendance.csv` file contains:
-
-| Name | Roll Number | Timestamp |
-|------|-------------|-----------|
-| Vansh Jain | AI23DS042 | 2024-12-21 09:30:15 |
-
-## 🔧 Configuration
-
-### Adjusting Recognition Threshold
-
-Edit `src/recognizer.py`:
-
-```python
-# Default threshold
-THRESHOLD = 0.6  # Adjust between 0.4-0.8
+```
+Smart-Attendence-/
+├── main.py                         # CLI entry point
+├── src/
+│   └── pipeline.py                # Complete pipeline (all logic)
+├── data/
+│   └── students/
+│       ├── students.csv           # Student registry
+│       ├── 101/                   # Photos by roll number
+│       │   ├── photo1.jpg
+│       │   └── photo2.jpg
+│       └── ...
+├── reference/
+│   └── embeddings.json            # Trained embeddings
+├── logs/
+│   └── attendance.csv             # Attendance records
+├── models/                        # FaceNet cache (auto-created)
+└── requirements.txt
 ```
 
-Or use command-line argument:
+## Data Structure
+
+### students.csv Format
+
+```csv
+roll_number,name
+101,John Doe
+102,Jane Smith
+```
+
+**Column 1**: `roll_number` - Unique identifier (used as folder name)
+**Column 2**: `name` - Student full name
+
+### Photo Requirements
+
+- **Location**: `data/students/{roll_number}/`
+- **Count**: Minimum 2 photos per student
+- **Format**: JPG, JPEG, or PNG
+- **Quality**: Clear facial features, well-lit
+- **Recommended**: 3-5 photos for better accuracy
+
+### embeddings.json (Auto-generated)
+
+```json
+{
+  "101": {
+    "name": "John Doe",
+    "embedding": [0.123, -0.456, ..., 0.789]  // 512 floats
+  },
+  "102": {
+    "name": "Jane Smith",
+    "embedding": [...]
+  }
+}
+```
+
+### attendance.csv (Auto-generated)
+
+```csv
+name,roll_no,timestamp
+John Doe,101,2025-12-22T10:30:45
+Jane Smith,102,2025-12-22T10:31:12
+```
+
+## Complete Workflow Example
+
 ```bash
-python main.py --threshold 0.55
+# 1. Create student registry
+echo "roll_number,name
+101,Alice
+102,Bob
+103,Charlie" > data/students/students.csv
+
+# 2. Create folders
+mkdir -p data/students/{101,102,103}
+
+# 3. Add photos
+cp alice1.jpg alice2.jpg data/students/101/
+cp bob1.jpg bob2.jpg data/students/102/
+cp charlie1.jpg charlie2.jpg data/students/103/
+
+# 4. Train
+python main.py --train
+
+# 5. Run attendance
+python main.py
+
+# 6. View results
+cat logs/attendance.csv
 ```
 
-### Camera Settings
+## Architecture
 
-Edit `main.py` to change camera source:
+**Single pipeline file** (`src/pipeline.py`) contains:
 
-```python
-cap = cv2.VideoCapture(0)  # 0 for default camera, 1 for external
-```
+- **FaceDetector** - MTCNN face detection
+- **FaceEmbedder** - FaceNet embeddings
+- **AttendancePipeline** - Complete workflow
+- **UI Functions** - Draw boxes and labels
+- **AttendanceLogger** - CSV logging
 
-## 🐛 Troubleshooting
+**Main app** (`main.py`) - 18 lines, just CLI interface
 
-### SSL Certificate Error (macOS Python 3.12+)
+## Adding More Students Later
 
-**Solution 1: Run Certificate Installer**
+1. **Add to CSV**:
+
+   ```bash
+   echo "104,David" >> data/students/students.csv
+   ```
+
+2. **Create folder and add photos**:
+
+   ```bash
+   mkdir data/students/104
+   cp david1.jpg david2.jpg data/students/104/
+   ```
+
+3. **Retrain**:
+
+   ```bash
+   python main.py --train
+   ```
+
+4. **Run**:
+   ```bash
+   python main.py
+   ```
+
+## Troubleshooting
+
+### "No embeddings found"
+
+- Run `python main.py --train` first
+- Ensure `data/students/students.csv` has data
+- Ensure student folders exist with photos
+
+### Low recognition accuracy
+
+- Add more photos (aim for 3-5 per student)
+- Use better lighting
+- Ensure clear facial features
+- Retrain with `--train`
+
+### No faces detected
+
+- Check photo quality
+- Ensure faces are clearly visible
+- Avoid extreme angles or partial faces
+
+### Reset everything
+
 ```bash
-open "/Applications/Python 3.12/Install Certificates.command"
+rm reference/embeddings.json
+rm -rf data/students/*/  # keeps CSV
+python main.py --train
 ```
 
-**Solution 2: Set Certificate Path Manually**
-```bash
-export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")
-export REQUESTS_CA_BUNDLE=$SSL_CERT_FILE
-```
+## Performance
 
-### Model Download Issues
+- **Training** (10 students): ~5-10 minutes
+- **Recognition** (per frame): ~100-150ms
+- **Memory**: ~500MB (FaceNet model)
+- **Storage** (embeddings only): ~4KB per student
 
-**Problem**: FaceNet model fails to download in offline/air-gapped environments
+## Requirements
 
-**Solution**: 
-1. Download model on a networked machine (same Python/TensorFlow setup)
-2. Copy the cached model from `models/` directory
-3. Transfer to the offline machine's `models/` folder
+- Python 3.7+
+- OpenCV (cv2)
+- TensorFlow/Keras
+- keras-facenet
+- MTCNN
+- Numpy
+- Pillow
 
-### Low Recognition Accuracy
+See `requirements.txt` for exact versions.
 
-**Solutions**:
-- Ensure good lighting conditions
-- Use high-quality reference images
-- Try adjusting the threshold
-- Ensure face is frontal and unobstructed
-- Re-enroll with better reference images
+## Notes
 
-### TensorFlow Installation Issues
-
-**For macOS (Apple Silicon)**:
-```bash
-pip install --upgrade pip
-pip install tensorflow-macos tensorflow-metal
-```
-
-**For Linux/Windows**:
-```bash
-pip install tensorflow
-```
-
-## 🎯 Performance Tips
-
-1. **Image Quality**: Use high-resolution, well-lit reference images
-2. **Lighting**: Ensure consistent lighting during enrollment and recognition
-3. **Distance**: Maintain 1-2 feet distance from webcam
-4. **Angle**: Keep face frontal (avoid extreme angles)
-5. **CPU Performance**: First run may be slow due to TensorFlow initialization
-
-## 📝 Requirements
-
-```txt
-tensorflow>=2.10.0
-keras-facenet>=0.3.2
-mtcnn>=0.1.1
-opencv-python>=4.7.0
-Pillow>=9.0.0
-numpy>=1.23.0
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is open source and available under the MIT License.
-
-## 👨‍💻 Author
-
-**Vansh Jain**
-- GitHub: [@vansh-09](https://github.com/vansh-09)
-
-## 🙏 Acknowledgments
-
-- FaceNet: [Schroff et al., 2015](https://arxiv.org/abs/1503.03832)
-- MTCNN: [Zhang et al., 2016](https://arxiv.org/abs/1604.02878)
-- keras-facenet library
-
-## 📧 Support
-
-For issues and questions:
-- Open an [Issue](https://github.com/vansh-09/Smart-Attendence-/issues)
-- Check existing documentation
-- Review troubleshooting section
+- **Models cached**: FaceNet weights downloaded once to `models/` folder
+- **Offline capable**: Works completely offline after first run
+- **Attendance marked once**: Same student won't be marked twice in one session
+- **CSV appended**: Attendance records append to CSV on each run
 
 ---
 
-**Note**: This system is designed for educational purposes and small-scale deployments. For production use, consider additional security measures and compliance with privacy regulations.
+**Ready to use. Just configure students, train, and run!** 🎓
