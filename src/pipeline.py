@@ -35,8 +35,15 @@ class FaceDetector:
         """Detect faces in BGR frame.
         Returns: [{'box': [x, y, w, h], 'confidence': float}, ...]
         """
+        if frame_bgr is None or frame_bgr.size == 0:
+            return []
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        results = self.detector.detect_faces(rgb)
+        try:
+            results = self.detector.detect_faces(rgb)
+        except Exception as e:
+            # Some frames can fail inside MTCNN when shapes are invalid; skip quietly
+            print(f"⚠️ Face detection skipped: {e}")
+            return []
         detections = []
         for r in results:
             box = r.get('box', [0, 0, 0, 0])
@@ -308,7 +315,7 @@ class AttendancePipeline:
                 
                 if best_sim >= threshold:
                     label = f"{best_name} ({best_roll}) | {best_sim:.2f}"
-                    self.logger.mark_once(best_name, best_roll)
+                    self.logger.mark_once(best_name, best_roll)  # idempotent; no repeated logs
                 else:
                     label = f"Unknown | {best_sim:.2f}"
                 

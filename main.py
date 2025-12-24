@@ -1,7 +1,3 @@
-"""
-Smart Attendance System - Application Entry Point
-"""
-
 import argparse
 from src.pipeline import train, recognize
 
