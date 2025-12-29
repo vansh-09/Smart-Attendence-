@@ -24,11 +24,13 @@ class SmartAttendanceApp(App):
     Header {
         background: $primary;
         color: $background;
+        text-style: bold;
     }
     
     Footer {
         background: $surface;
         color: $text;
+        border-top: solid $primary;
     }
     
     .title {
@@ -38,7 +40,7 @@ class SmartAttendanceApp(App):
         background: $primary;
         color: $background;
         text-style: bold;
-        padding: 1;
+        padding: 1 2;
         margin-bottom: 1;
     }
     
@@ -52,29 +54,137 @@ class SmartAttendanceApp(App):
     }
     
     Button {
-        margin: 1;
-        width: 1fr;
+        margin: 0 1;
+        min-width: 20;
     }
     
-    Button:hover {
+    Button:focus {
         background: $accent;
         color: $background;
+        text-style: bold;
+    }
+    
+    Button.back-btn {
+        margin: 0 1;
+        width: auto;
+    }
+    
+    Button.primary {
+        background: $success;
+    }
+    
+    Button.warning {
+        background: $warning;
+    }
+    
+    Button.primary:focus {
+        background: $accent;
+    }
+    
+    Button.warning:focus {
+        background: $error;
     }
     
     Input {
         border: solid $primary;
         padding: 1;
         margin: 1 0;
+        background: $panel;
+        color: $text;
+    }
+    
+    Input:focus {
+        border: solid $accent;
+        background: $accent;
+        color: $background;
     }
     
     DataTable {
         border: solid $primary;
         padding: 1;
-        height: 100%;
+        height: 1fr;
+    }
+    
+    DataTable > .datatable--cursor {
+        background: $accent;
+        color: $background;
     }
     
     Label {
         margin: 0 1;
+        color: $text;
+    }
+    
+    Static {
+        color: $text;
+    }
+    
+    OptionList {
+        border: solid $primary;
+        background: $panel;
+        padding: 1;
+    }
+    
+    OptionList:focus {
+        border: solid $accent;
+    }
+    
+    .welcome-title {
+        width: 100%;
+        content-align: center middle;
+        background: $primary;
+        color: $background;
+        text-style: bold;
+        padding: 2 1;
+        margin-bottom: 1;
+        border-bottom: solid $accent;
+    }
+    
+    .stat-box {
+        width: 1fr;
+        height: auto;
+        border: round $primary;
+        background: $panel;
+        padding: 1;
+        margin: 0 1;
+    }
+    
+    .stat-box:focus {
+        border: round $accent;
+        background: $accent;
+        color: $background;
+    }
+    
+    .info-box {
+        border: round $primary;
+        background: $panel;
+        padding: 1;
+        margin: 1 0;
+    }
+    
+    .action-buttons {
+        height: auto;
+        background: $panel;
+        border: solid $primary;
+        padding: 1;
+        margin: 1 0;
+    }
+    
+    .form-group {
+        height: auto;
+        margin: 1 0;
+        padding: 1;
+        border-left: solid $accent;
+        background: $panel;
+    }
+    
+    .settings-panel {
+        width: 100%;
+        height: auto;
+        border: solid $primary;
+        background: $panel;
+        padding: 1;
+        margin: 1 0;
     }
     """
     
@@ -84,7 +194,7 @@ class SmartAttendanceApp(App):
     
     def on_mount(self) -> None:
         """Called when app starts."""
-        # Use default theme with custom CSS styling
+        # Use a nice theme
         self.theme = "nord"
         self.push_screen(WelcomeScreen())
 

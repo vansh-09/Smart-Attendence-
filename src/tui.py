@@ -26,6 +26,7 @@ from rich.text import Text
 from rich.console import Console
 from rich.align import Align
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
+from rich.box import ROUNDED, DOUBLE, HEAVY
 
 from src.pipeline import (
     FaceDetector, FaceEmbedder, AttendanceLogger,
@@ -36,7 +37,107 @@ import numpy as np
 import csv
 
 
-class WelcomeScreen(Screen):
+class BaseScreen(Screen):
+    """Base screen class with common styling and back navigation."""
+    
+    CSS = """
+    Screen {
+        background: $surface;
+    }
+    
+    .title {
+        width: 100%;
+        height: auto;
+        content-align: center middle;
+        background: $primary;
+        color: $background;
+        text-style: bold;
+        padding: 1 2;
+        margin-bottom: 1;
+    }
+    
+    .subtitle {
+        width: 100%;
+        height: auto;
+        content-align: center middle;
+        color: $accent;
+        text-style: italic;
+        margin: 1 0;
+    }
+    
+    Button {
+        margin: 0 1;
+    }
+    
+    Button:focus {
+        background: $accent;
+        color: $background;
+    }
+    
+    Button.back-btn {
+        margin-right: auto;
+        width: auto;
+    }
+    
+    .stat-box {
+        width: 1fr;
+        height: auto;
+        border: solid $primary;
+        background: $panel;
+        padding: 1;
+        margin: 0 1;
+    }
+    
+    .info-box {
+        border: round $primary;
+        background: $panel;
+        padding: 1;
+        margin: 1 0;
+    }
+    
+    Input {
+        border: solid $primary;
+        padding: 1;
+        margin: 1 0;
+    }
+    
+    DataTable {
+        border: solid $primary;
+        padding: 1;
+        height: 1fr;
+    }
+    
+    Label {
+        margin: 0 1;
+    }
+    
+    .action-buttons {
+        height: auto;
+        background: $panel;
+        border: solid $primary;
+        padding: 1;
+        margin: 1 0;
+    }
+    
+    .form-group {
+        height: auto;
+        margin: 1 0;
+        padding: 1;
+        border-left: solid $accent;
+    }
+    
+    .settings-panel {
+        width: 100%;
+        height: auto;
+        border: solid $primary;
+        background: $panel;
+        padding: 1;
+        margin: 1 0;
+    }
+    """
+
+
+class WelcomeScreen(BaseScreen):
     """Beautiful welcome screen with main menu options."""
     
     BINDINGS = [
@@ -44,25 +145,34 @@ class WelcomeScreen(Screen):
     ]
     
     CSS = """
-    Screen {
-        background: $surface;
-    }
-    
     .welcome-panel {
         width: 100%;
         height: 100%;
         align: center middle;
     }
     
-    Button {
-        margin: 1 2;
+    .menu-container {
+        width: 70;
+        height: auto;
+        border: double $primary;
+        background: $panel;
+        padding: 2;
     }
     
-    .menu-container {
-        width: 60;
-        height: auto;
-        border: solid $primary;
-        background: $panel;
+    .welcome-title {
+        width: 100%;
+        content-align: center middle;
+        background: $primary;
+        color: $background;
+        text-style: bold;
+        padding: 1;
+        margin-bottom: 1;
+    }
+    
+    Button {
+        width: 100%;
+        margin: 1 0;
+        height: 3;
     }
     """
     
@@ -70,16 +180,14 @@ class WelcomeScreen(Screen):
         yield Header(show_clock=True)
         with Container(classes="welcome-panel"):
             with Vertical(classes="menu-container"):
-                yield Label("", id="title")
-                yield Label("Smart Attendance System", classes="title")
-                yield Label("Face Recognition Attendance Management", classes="subtitle")
+                yield Static("Smart Attendance System", classes="welcome-title")
+                yield Label("Face Recognition Attendance Management")
                 yield Label("")
                 yield Button("📊 Dashboard", id="btn-dashboard", variant="primary")
                 yield Button("📁 Manage Data", id="btn-data", variant="default")
                 yield Button("🧠 Train Model", id="btn-train", variant="default")
                 yield Button("📷 Mark Attendance", id="btn-recognize", variant="default")
                 yield Button("⚙️  Settings", id="btn-settings", variant="default")
-                yield Label("")
         yield Footer()
     
     def on_mount(self) -> None:
@@ -100,7 +208,7 @@ class WelcomeScreen(Screen):
             self.app.push_screen(SettingsScreen())
 
 
-class DashboardScreen(Screen):
+class DashboardScreen(BaseScreen):
     """Dashboard showing system stats and recent activity."""
     
     BINDINGS = [
@@ -109,36 +217,41 @@ class DashboardScreen(Screen):
     ]
     
     CSS = """
-    Screen {
-        background: $surface;
+    .header-row {
+        height: auto;
+        margin-bottom: 1;
     }
     
-    .stat-box {
-        width: 1fr;
+    .stats-row {
         height: auto;
+        margin: 1 0;
+    }
+    
+    .activity-section {
+        height: 1fr;
         border: solid $primary;
         background: $panel;
         padding: 1;
-    }
-    
-    DataTable {
-        height: 1fr;
+        margin: 1 0;
     }
     """
     
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield Label("📊 Dashboard", classes="title")
+        with Vertical(classes="header-row"):
+            with Horizontal():
+                yield Button("⬅ Back", id="btn-back", variant="warning", classes="back-btn")
+            yield Static("📊 Dashboard", classes="title")
         
         # Stats row
-        with Horizontal():
-            yield Static("Total Students: --", id="stat-students", classes="stat-box")
-            yield Static("Trained: --", id="stat-trained", classes="stat-box")
-            yield Static("Today's Attendance: --", id="stat-attendance", classes="stat-box")
+        with Horizontal(classes="stats-row"):
+            yield Static("👥 Total Students: --", id="stat-students", classes="stat-box")
+            yield Static("✓ Trained: --", id="stat-trained", classes="stat-box")
+            yield Static("📍 Today's Attendance: --", id="stat-attendance", classes="stat-box")
         
-        # Recent activity table
-        yield Label("Recent Attendance Log")
-        with VerticalScroll():
+        # Recent activity section
+        with Vertical(classes="activity-section"):
+            yield Label("📋 Recent Attendance Log", id="activity-label")
             yield DataTable(id="activity-table")
         
         yield Footer()
@@ -148,6 +261,11 @@ class DashboardScreen(Screen):
         self.title = "Dashboard"
         self._load_stats()
         self._load_recent_activity()
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle back button."""
+        if event.button.id == "btn-back":
+            self.app.pop_screen()
     
     def _load_stats(self) -> None:
         """Load and display statistics."""
@@ -210,7 +328,7 @@ class DashboardScreen(Screen):
                 pass
 
 
-class DataManagementScreen(Screen):
+class DataManagementScreen(BaseScreen):
     """Manage student data and embeddings."""
     
     BINDINGS = [
@@ -219,25 +337,18 @@ class DataManagementScreen(Screen):
     ]
     
     CSS = """
-    Screen {
-        background: $surface;
-    }
-    
-    .action-buttons {
+    .data-header {
         height: auto;
-        background: $panel;
-        border: solid $primary;
-        padding: 1;
-    }
-    
-    DataTable {
-        height: 1fr;
+        margin-bottom: 1;
     }
     """
     
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield Label("📁 Manage Data", classes="title")
+        with Vertical(classes="data-header"):
+            with Horizontal():
+                yield Button("⬅ Back", id="btn-back", variant="warning", classes="back-btn")
+            yield Static("📁 Manage Data", classes="title")
         
         with Horizontal(classes="action-buttons"):
             yield Button("➕ Add Student", id="btn-add-student", variant="primary")
@@ -252,6 +363,16 @@ class DataManagementScreen(Screen):
         """Initialize data management screen."""
         self.title = "Data Management"
         self._load_students()
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses."""
+        if event.button.id == "btn-back":
+            self.app.pop_screen()
+        elif event.button.id == "btn-add-student":
+            self.app.push_screen(AddStudentScreen())
+        elif event.button.id == "btn-refresh":
+            self.query_one("#students-table", DataTable).clear()
+            self._load_students()
     
     def _load_students(self) -> None:
         """Load student list."""
@@ -284,17 +405,9 @@ class DataManagementScreen(Screen):
                         table.add_row(name, roll, str(img_count), status)
             except Exception as e:
                 pass
-    
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses."""
-        if event.button.id == "btn-add-student":
-            self.app.push_screen(AddStudentScreen())
-        elif event.button.id == "btn-refresh":
-            self.query_one("#students-table", DataTable).clear()
-            self._load_students()
 
 
-class AddStudentScreen(Screen):
+class AddStudentScreen(BaseScreen):
     """Add a new student to the system."""
     
     BINDINGS = [
@@ -302,32 +415,40 @@ class AddStudentScreen(Screen):
     ]
     
     CSS = """
-    Screen {
-        background: $surface;
+    .form-header {
+        height: auto;
+        margin-bottom: 1;
     }
     
-    .form-group {
+    .form-container {
+        width: 60;
         height: auto;
-        margin: 1 0;
+        border: solid $primary;
+        background: $panel;
+        padding: 2;
     }
     """
     
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield Label("➕ Add New Student", classes="title")
-        
-        with VerticalScroll():
-            with Vertical(classes="form-group"):
-                yield Label("Student Name:")
-                yield Input(id="student-name", placeholder="e.g., John Doe")
-            
-            with Vertical(classes="form-group"):
-                yield Label("Roll Number:")
-                yield Input(id="student-roll", placeholder="e.g., 124A8036")
-            
+        with Vertical(classes="form-header"):
             with Horizontal():
-                yield Button("✓ Add Student", id="btn-confirm", variant="primary")
-                yield Button("✗ Cancel", id="btn-cancel", variant="warning")
+                yield Button("⬅ Back", id="btn-back", variant="warning", classes="back-btn")
+            yield Static("➕ Add New Student", classes="title")
+        
+        with Vertical(classes="form-container"):
+                with Vertical(classes="form-group"):
+                    yield Label("👤 Student Name:")
+                    yield Input(id="student-name", placeholder="e.g., John Doe")
+                
+                with Vertical(classes="form-group"):
+                    yield Label("🆔 Roll Number:")
+                    yield Input(id="student-roll", placeholder="e.g., 124A8036")
+                
+                yield Label("")
+                with Horizontal():
+                    yield Button("✓ Add Student", id="btn-confirm", variant="primary")
+                    yield Button("✗ Cancel", id="btn-cancel", variant="warning")
         
         yield Footer()
     
@@ -335,7 +456,9 @@ class AddStudentScreen(Screen):
         self.title = "Add Student"
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-confirm":
+        if event.button.id == "btn-back":
+            self.app.pop_screen()
+        elif event.button.id == "btn-confirm":
             name = self.query_one("#student-name", Input).value
             roll = self.query_one("#student-roll", Input).value
             
@@ -364,7 +487,7 @@ class AddStudentScreen(Screen):
         os.makedirs(student_dir, exist_ok=True)
 
 
-class TrainingScreen(Screen):
+class TrainingScreen(BaseScreen):
     """Model training interface."""
     
     BINDINGS = [
@@ -373,8 +496,9 @@ class TrainingScreen(Screen):
     ]
     
     CSS = """
-    Screen {
-        background: $surface;
+    .training-header {
+        height: auto;
+        margin-bottom: 1;
     }
     
     .training-panel {
@@ -383,6 +507,7 @@ class TrainingScreen(Screen):
         border: solid $primary;
         background: $panel;
         padding: 1;
+        margin: 1 0;
     }
     
     OptionList {
@@ -393,10 +518,13 @@ class TrainingScreen(Screen):
     
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield Label("🧠 Train Model", classes="title")
+        with Vertical(classes="training-header"):
+            with Horizontal():
+                yield Button("⬅ Back", id="btn-back", variant="warning", classes="back-btn")
+            yield Static("🧠 Train Model", classes="title")
         
         with Vertical(classes="training-panel"):
-            yield Label("Select students to train (or leave empty to train all):")
+            yield Label("📚 Select students to train (or leave empty to train all):")
             yield OptionList(id="student-list")
             yield Label("")
             
@@ -410,6 +538,16 @@ class TrainingScreen(Screen):
     def on_mount(self) -> None:
         self.title = "Training"
         self._load_student_list()
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-back":
+            self.app.pop_screen()
+        elif event.button.id == "btn-train-all":
+            self.app.push_screen(TrainingProgressScreen())
+        elif event.button.id == "btn-refresh-list":
+            self._load_student_list()
+        elif event.button.id == "btn-cancel":
+            self.app.pop_screen()
     
     def _load_student_list(self) -> None:
         """Load list of students available for training."""
@@ -430,26 +568,19 @@ class TrainingScreen(Screen):
                         option_list.add_option((f"{name} ({roll}) - {img_count} images", roll))
             except:
                 pass
-    
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-train-all":
-            self.app.push_screen(TrainingProgressScreen())
-        elif event.button.id == "btn-refresh-list":
-            self._load_student_list()
-        elif event.button.id == "btn-cancel":
-            self.app.pop_screen()
 
 
-class TrainingProgressScreen(Screen):
+class TrainingProgressScreen(BaseScreen):
     """Show training progress."""
     
     BINDINGS = [
-        Binding("escape", "pop_screen", "Back", show=False),
+        Binding("escape", "pop_screen", "Back", show=True),
     ]
     
     CSS = """
-    Screen {
-        background: $surface;
+    .progress-header {
+        height: auto;
+        margin-bottom: 1;
     }
     
     .progress-panel {
@@ -457,16 +588,20 @@ class TrainingProgressScreen(Screen):
         height: auto;
         border: solid $primary;
         background: $panel;
-        padding: 1;
+        padding: 2;
+        margin: 1 0;
     }
     """
     
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield Label("⏳ Training in Progress...", classes="title", id="status-label")
+        with Vertical(classes="progress-header"):
+            with Horizontal():
+                yield Button("⬅ Back", id="btn-back", variant="warning", classes="back-btn")
+            yield Static("⏳ Training in Progress...", classes="title", id="status-label")
         
         with Vertical(classes="progress-panel", id="progress-container"):
-            yield Label("Processing students...", id="progress-text")
+            yield Label("📊 Processing students...", id="progress-text")
             yield Static("", id="progress-bar")
         
         yield Footer()
@@ -475,6 +610,10 @@ class TrainingProgressScreen(Screen):
         self.title = "Training Progress"
         self._start_training()
     
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-back":
+            self.app.pop_screen()
+    
     def _start_training(self) -> None:
         """Start the training process."""
         from src.pipeline import train as train_fn
@@ -482,11 +621,11 @@ class TrainingProgressScreen(Screen):
         try:
             # This would call the actual training function
             # For demo, we'll show a simple progress indication
-            status = self.query_one("#status-label", Label)
+            status = self.query_one("#status-label", Static)
             progress = self.query_one("#progress-text", Label)
             
             status.update("✓ Training Complete!")
-            progress.update("All students have been trained successfully.")
+            progress.update("✅ All students have been trained successfully.")
             
             self.app.notify("✓ Training completed!", title="Success", timeout=3)
         except Exception as e:
@@ -494,7 +633,7 @@ class TrainingProgressScreen(Screen):
             self.app.pop_screen()
 
 
-class RecognitionScreen(Screen):
+class RecognitionScreen(BaseScreen):
     """Attendance recognition interface."""
     
     BINDINGS = [
@@ -503,35 +642,36 @@ class RecognitionScreen(Screen):
     ]
     
     CSS = """
-    Screen {
-        background: $surface;
+    .recognition-header {
+        height: auto;
+        margin-bottom: 1;
     }
     
-    .settings-panel {
-        width: 100%;
+    .config-section {
+        width: 60;
         height: auto;
         border: solid $primary;
         background: $panel;
-        padding: 1;
-    }
-    
-    Input {
-        margin: 1 0;
+        padding: 2;
     }
     """
     
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield Label("📷 Mark Attendance", classes="title")
-        
-        with Vertical(classes="settings-panel"):
-            yield Label("Recognition Threshold: 0.6")
-            yield Input(id="threshold-input", type="number", value="0.6")
-            yield Label("")
-            
+        with Vertical(classes="recognition-header"):
             with Horizontal():
-                yield Button("▶ Start Camera", id="btn-start-camera", variant="primary")
-                yield Button("✗ Cancel", id="btn-cancel", variant="warning")
+                yield Button("⬅ Back", id="btn-back", variant="warning", classes="back-btn")
+            yield Static("📷 Mark Attendance", classes="title")
+        
+        with Vertical(classes="config-section"):
+                with Vertical(classes="form-group"):
+                    yield Label("⚙️  Recognition Threshold:")
+                    yield Input(id="threshold-input", type="number", value="0.6", placeholder="0.0 - 1.0")
+                
+                yield Label("")
+                with Horizontal():
+                    yield Button("▶ Start Camera", id="btn-start-camera", variant="primary")
+                    yield Button("✗ Cancel", id="btn-cancel", variant="warning")
         
         yield Footer()
     
@@ -539,9 +679,11 @@ class RecognitionScreen(Screen):
         self.title = "Recognition"
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-start-camera":
+        if event.button.id == "btn-back":
+            self.app.pop_screen()
+        elif event.button.id == "btn-start-camera":
             threshold = float(self.query_one("#threshold-input", Input).value or 0.6)
-            self.app.notify("Starting camera... (close window to return)", title="Camera", timeout=5)
+            self.app.notify("🎥 Starting camera... (close window to return)", title="Camera", timeout=5)
             
             # This would start the actual recognition
             from src.pipeline import recognize as recognize_fn
@@ -552,7 +694,7 @@ class RecognitionScreen(Screen):
             self.app.pop_screen()
 
 
-class SettingsScreen(Screen):
+class SettingsScreen(BaseScreen):
     """Application settings."""
     
     BINDINGS = [
@@ -561,35 +703,39 @@ class SettingsScreen(Screen):
     ]
     
     CSS = """
-    Screen {
-        background: $surface;
+    .settings-header {
+        height: auto;
+        margin-bottom: 1;
     }
     
     .setting-item {
         height: auto;
         margin: 1 0;
-        border: solid $primary;
+        border: round $primary;
         background: $panel;
-        padding: 1;
+        padding: 1 2;
     }
     """
     
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield Label("⚙️  Settings", classes="title")
+        with Vertical(classes="settings-header"):
+            with Horizontal():
+                yield Button("⬅ Back", id="btn-back", variant="warning", classes="back-btn")
+            yield Static("⚙️  Settings", classes="title")
         
         with VerticalScroll():
             with Vertical(classes="setting-item"):
-                yield Label("Default Recognition Threshold:")
-                yield Input(id="default-threshold", value="0.6", type="number")
+                yield Label("🎯 Default Recognition Threshold:")
+                yield Input(id="default-threshold", value="0.6", type="number", placeholder="0.0 - 1.0")
             
             with Vertical(classes="setting-item"):
-                yield Label("Data Directory:")
-                yield Static(os.path.dirname(STUDENTS_CSV))
+                yield Label("📁 Data Directory:")
+                yield Static(f"📂 {os.path.dirname(STUDENTS_CSV)}")
             
             with Vertical(classes="setting-item"):
-                yield Label("Embeddings File:")
-                yield Static(EMBEDDINGS_FILE)
+                yield Label("🔗 Embeddings File:")
+                yield Static(f"📄 {EMBEDDINGS_FILE}")
             
             with Horizontal():
                 yield Button("✓ Save", id="btn-save", variant="primary")
@@ -601,8 +747,10 @@ class SettingsScreen(Screen):
         self.title = "Settings"
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-save":
-            self.app.notify("Settings saved!", title="Success", timeout=2)
+        if event.button.id == "btn-back":
+            self.app.pop_screen()
+        elif event.button.id == "btn-save":
+            self.app.notify("✓ Settings saved!", title="Success", timeout=2)
         elif event.button.id == "btn-close":
             self.app.pop_screen()
 
