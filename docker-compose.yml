@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  smart-attendance:
+    build: .
+    container_name: smart-attendance
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./reference:/app/reference
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - attendance-net
+
+networks:
+  attendance-net:
+    driver: bridge

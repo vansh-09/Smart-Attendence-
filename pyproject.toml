@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smart-attendance"
+version = "1.0.0"
+description = "Face Recognition Attendance Management System with Beautiful TUI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Smart Attendance Team", email = "dev@smartattendance.local"}
+]
+
+keywords = ["attendance", "face-recognition", "machine-learning", "tensorflow"]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "numpy==1.26.4",
+    "opencv-python>=4.8.0",
+    "Pillow>=10.0.0",
+    "tensorflow>=2.15.0",
+    "keras-facenet>=0.13",
+    "mtcnn>=0.1.1",
+    "scipy>=1.11.0",
+    "textual>=0.46.0",
+    "rich>=13.7.0",
+    "click>=8.1.0",
+    "typer>=0.9.0",
+    "python-dotenv>=1.0.0",
+    "colorama>=0.4.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.9.0",
+    "flake8>=6.1.0",
+    "mypy>=1.5.0",
+]
+
+[project.scripts]
+smart-attendance = "src.tui_app:main"
+
+[tool.setuptools]
+packages = ["src"]

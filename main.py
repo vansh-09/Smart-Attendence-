@@ -1,15 +1,34 @@
-import argparse
-from src.pipeline import train, recognize
+#!/usr/bin/env python3
+"""
+Smart Attendance - Interactive CLI Launcher
+A complete face recognition attendance system with beautiful terminal UI
+"""
 
+import sys
+import os
+from pathlib import Path
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Smart Attendance System')
-    parser.add_argument('--train', action='store_true', help='Train embeddings for all students')
-    parser.add_argument('--recognize', action='store_true', help='Run attendance recognition')
-    parser.add_argument('--threshold', type=float, default=0.6, help='Recognition threshold (default 0.6)')
-    args = parser.parse_args()
-    
-    if args.train:
-        train()
-    elif args.recognize or (not args.train):
-        recognize(args.threshold)
+# Add project root to path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+def main():
+    """Main entry point for the application."""
+    try:
+        from src.tui_app import SmartAttendanceApp
+        app = SmartAttendanceApp()
+        app.run()
+    except ImportError as e:
+        print(f"❌ Error: Missing dependencies - {e}")
+        print("\n📦 Install dependencies with:")
+        print("   pip install -r requirements.txt")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\n👋 Goodbye!")
+        sys.exit(0)
+    except Exception as e:
+        print(f"❌ Application error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
