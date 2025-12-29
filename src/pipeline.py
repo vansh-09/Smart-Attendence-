@@ -18,8 +18,8 @@ from keras_facenet import FaceNet
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 EMBEDDINGS_FILE = os.path.join(BASE_DIR, "reference", "embeddings.json")
-STUDENTS_CSV = os.path.join(BASE_DIR, "data", "students", "students.csv")
-STUDENTS_DIR = os.path.join(BASE_DIR, "data", "students")
+STUDENTS_CSV = os.path.join(BASE_DIR, "data", "students", "info", "students.csv")
+STUDENTS_DIR = os.path.join(BASE_DIR, "data", "students", "images")
 LOGS_DIR = os.path.join(BASE_DIR, "logs", "attendance.csv")
 
 
@@ -198,13 +198,11 @@ class AttendancePipeline:
             return emb
         return (emb / (norm + 1e-8)).tolist()
     
-    def train_batch(self):
-        """Train embeddings for all students from CSV and folders."""
+    def _get_all_students_from_csv(self):
+        """Read all students from CSV."""
         if not os.path.exists(STUDENTS_CSV):
-            print("❌ No students.csv found")
-            return
+            return {}
         
-        # Read student info
         students = {}
         with open(STUDENTS_CSV, 'r') as f:
             reader = csv.DictReader(f)
@@ -212,61 +210,142 @@ class AttendancePipeline:
                 roll = row['roll_number'].strip()
                 name = row['name'].strip()
                 students[roll] = name
+        return students
+    
+    def _process_student(self, roll_no, name):
+        """Process a single student and return their embedding data.
         
-        if not students:
+        Returns:
+            dict: {"name": str, "embedding": list} or None if failed
+        """
+        student_dir = os.path.join(STUDENTS_DIR, roll_no)
+        if not os.path.isdir(student_dir):
+            print(f"⚠️  Skipping {roll_no} - folder not found")
+            return None
+        
+        # Get all photos (case-insensitive extensions)
+        photos = sorted(
+            glob.glob(os.path.join(student_dir, "*.jpg")) +
+            glob.glob(os.path.join(student_dir, "*.JPG")) +
+            glob.glob(os.path.join(student_dir, "*.jpeg")) +
+            glob.glob(os.path.join(student_dir, "*.JPEG")) +
+            glob.glob(os.path.join(student_dir, "*.png")) +
+            glob.glob(os.path.join(student_dir, "*.PNG"))
+        )
+        
+        if len(photos) < 2:
+            print(f"⚠️  Skipping {roll_no} - need at least 2 photos, found {len(photos)}")
+            return None
+        
+        # Generate embeddings from all photos
+        embs = []
+        for photo_path in photos:
+            img = cv2.imread(photo_path)
+            if img is None:
+                continue
+            emb, _ = self.detect_and_embed(img)
+            if emb is not None:
+                embs.append(emb)
+        
+        if not embs:
+            print(f"❌ {roll_no} - no valid faces detected")
+            return None
+        
+        # Compute mean embedding
+        mean_emb = np.mean(np.stack(embs, axis=0), axis=0)
+        mean_emb = self.normalize_embedding(mean_emb)
+        
+        print(f"✓ {roll_no}: {name} ({len(embs)} faces)")
+        return {
+            "name": name,
+            "embedding": mean_emb
+        }
+    
+    def add_students_incremental(self, specific_roll_nos=None):
+        """Add new students incrementally WITHOUT retraining existing ones.
+        
+        Args:
+            specific_roll_nos: Optional list of roll numbers to add. If None, adds all new students.
+        
+        Returns:
+            int: Number of students added
+        """
+        # Load existing embeddings
+        existing_embeddings = self.load_embeddings()
+        
+        # Get all students from CSV
+        all_students = self._get_all_students_from_csv()
+        
+        if not all_students:
             print("❌ No students in CSV")
-            return
+            return 0
         
-        print(f"Training {len(students)} students...")
-        embeddings = {}
+        # Determine which students to process
+        if specific_roll_nos:
+            # Process only specified roll numbers
+            students_to_add = {roll: all_students[roll] for roll in specific_roll_nos if roll in all_students}
+        else:
+            # Process only NEW students (not in existing embeddings)
+            students_to_add = {roll: name for roll, name in all_students.items() 
+                             if roll not in existing_embeddings}
         
-        for roll_no, name in students.items():
-            student_dir = os.path.join(STUDENTS_DIR, roll_no)
-            if not os.path.isdir(student_dir):
-                print(f"⚠️  Skipping {roll_no} - folder not found")
-                continue
-            
-            # Get all photos
-            photos = sorted(
-                glob.glob(os.path.join(student_dir, "*.jpg")) +
-                glob.glob(os.path.join(student_dir, "*.jpeg")) +
-                glob.glob(os.path.join(student_dir, "*.png"))
-            )
-            
-            if len(photos) < 2:
-                print(f"⚠️  Skipping {roll_no} - need at least 2 photos, found {len(photos)}")
-                continue
-            
-            # Generate embeddings from all photos
-            embs = []
-            for photo_path in photos:
-                img = cv2.imread(photo_path)
-                if img is None:
-                    continue
-                emb, _ = self.detect_and_embed(img)
-                if emb is not None:
-                    embs.append(emb)
-            
-            if not embs:
-                print(f"❌ {roll_no} - no valid faces detected")
-                continue
-            
-            # Compute mean embedding
-            mean_emb = np.mean(np.stack(embs, axis=0), axis=0)
-            mean_emb = self.normalize_embedding(mean_emb)
-            
-            embeddings[roll_no] = {
-                "name": name,
-                "embedding": mean_emb
-            }
-            print(f"✓ {roll_no}: {name} ({len(embs)} faces)")
+        if not students_to_add:
+            print("✅ No new students to add. All students already trained.")
+            return 0
         
-        # Save embeddings
+        print(f"\n🔄 Adding {len(students_to_add)} new student(s) incrementally...")
+        print(f"   (Keeping {len(existing_embeddings)} existing student(s))\n")
+        
+        added_count = 0
+        for roll_no, name in students_to_add.items():
+            result = self._process_student(roll_no, name)
+            if result:
+                existing_embeddings[roll_no] = result
+                added_count += 1
+        
+        # Save updated embeddings (existing + new)
         os.makedirs(os.path.dirname(EMBEDDINGS_FILE), exist_ok=True)
         with open(EMBEDDINGS_FILE, "w") as f:
-            json.dump(embeddings, f)
+            json.dump(existing_embeddings, f)
         
-        print(f"✓ Trained {len(embeddings)} students\n")
+        print(f"\n✅ Added {added_count} new student(s)")
+        print(f"   Total students: {len(existing_embeddings)}\n")
+        return added_count
+    
+    def train_batch(self, incremental=True):
+        """Train embeddings for students from CSV and folders.
+        
+        Args:
+            incremental: If True (default), only processes new students.
+                        If False, retrains ALL students from scratch.
+        """
+        if incremental:
+            # INCREMENTAL MODE: Only add new students
+            self.add_students_incremental()
+        else:
+            # FULL RETRAIN MODE: Retrain everything from scratch
+            print("\n⚠️  FULL RETRAIN MODE - Processing ALL students from scratch\n")
+            
+            all_students = self._get_all_students_from_csv()
+            
+            if not all_students:
+                print("❌ No students in CSV")
+                return
+            
+            print(f"Training {len(all_students)} students...")
+            embeddings = {}
+            
+            for roll_no, name in all_students.items():
+                result = self._process_student(roll_no, name)
+                if result:
+                    embeddings[roll_no] = result
+            
+            # Save embeddings
+            os.makedirs(os.path.dirname(EMBEDDINGS_FILE), exist_ok=True)
+            with open(EMBEDDINGS_FILE, "w") as f:
+                json.dump(embeddings, f)
+            
+            print(f"\n✓ Trained {len(embeddings)} students\n")
     
     def load_embeddings(self):
         """Load all student embeddings."""
@@ -332,9 +411,24 @@ class AttendancePipeline:
 # Convenience functions for main.py
 pipeline = AttendancePipeline()
 
-def train():
-    """Train embeddings."""
-    pipeline.train_batch()
+def train(incremental=True):
+    """Train embeddings.
+    
+    Args:
+        incremental: If True, only adds new students. If False, retrains all.
+    """
+    pipeline.train_batch(incremental=incremental)
+
+def add_student(roll_no=None):
+    """Add a specific student or all new students incrementally.
+    
+    Args:
+        roll_no: Optional roll number. If None, adds all new students.
+    """
+    if roll_no:
+        pipeline.add_students_incremental([roll_no])
+    else:
+        pipeline.add_students_incremental()
 
 def recognize(threshold=0.6):
     """Run recognition."""

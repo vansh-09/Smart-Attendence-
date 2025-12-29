@@ -1,4 +1,4 @@
-
+.ven
 venv/
 .venv/
 __pycache__/
@@ -6,8 +6,9 @@ __pycache__/
 *.pyo
 .env
 .DS_Store
+data/students/
 
 # Ignore data files
 reference/embedding.json
-reference/img1.jpg
-reference/img2.jpg
+
+
